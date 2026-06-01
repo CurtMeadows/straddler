@@ -190,8 +190,8 @@ func (m WorkersModel) View() string {
 		sb.WriteString(strings.Repeat("─", m.width-2))
 		sb.WriteString("\n")
 		total := m.summary.Pending + m.summary.InProgress + m.summary.Completed + m.summary.Failed
-		sb.WriteString(fmt.Sprintf("  Pending: %d  In Progress: %d  Completed: %d  Failed: %d  Total: %d",
-			m.summary.Pending, m.summary.InProgress, m.summary.Completed, m.summary.Failed, total))
+		fmt.Fprintf(&sb, "  Pending: %d  In Progress: %d  Completed: %d  Failed: %d  Total: %d",
+			m.summary.Pending, m.summary.InProgress, m.summary.Completed, m.summary.Failed, total)
 	}
 
 	// Confirm overlay.

@@ -407,9 +407,9 @@ func (m SyncModel) View() string {
 		if m.result != nil {
 			sb.WriteString("  ✓ Done!\n\n")
 			if m.result.dryRun {
-				sb.WriteString(fmt.Sprintf("  Would have enqueued: %d tags (dry run)\n", len(m.result.tags)))
+				fmt.Fprintf(&sb, "  Would have enqueued: %d tags (dry run)\n", len(m.result.tags))
 			} else {
-				sb.WriteString(fmt.Sprintf("  Enqueued: %d  Skipped: %d\n", m.result.enqueued, m.result.skipped))
+				fmt.Fprintf(&sb, "  Enqueued: %d  Skipped: %d\n", m.result.enqueued, m.result.skipped)
 			}
 			sb.WriteString("\n  " + styles.KeyHintKey.Render("[Enter/R]") + " new sync  " +
 				styles.KeyHintKey.Render("[D]") + " dashboard")
