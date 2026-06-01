@@ -1,7 +1,7 @@
 # Compiled binaries
 bin/
-straddler
-straddler.exe
+/straddler
+/straddler.exe
 
 # Go test and coverage artifacts
 *.test
