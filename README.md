@@ -40,28 +40,23 @@ between registries, and exits when every job completes or permanently fails.
 
 ## Installation
 
-### Option 1 — Download a pre-built binary (recommended, no Go required)
+### Option 1 — Install script (recommended, no Go or sudo required)
 
-Go to the [Releases page](https://github.com/CurtMeadows/straddler/releases/latest) and
-download the archive for your platform, or use curl:
+Detects your OS and architecture, installs to `~/.local/bin`, and adds it to your PATH automatically:
 
 ```bash
-# macOS (Apple Silicon)
-curl -sSL https://github.com/CurtMeadows/straddler/releases/latest/download/straddler_darwin_arm64.tar.gz \
-  | tar xz && sudo mv straddler /usr/local/bin/
-
-# macOS (Intel)
-curl -sSL https://github.com/CurtMeadows/straddler/releases/latest/download/straddler_darwin_amd64.tar.gz \
-  | tar xz && sudo mv straddler /usr/local/bin/
-
-# Linux (amd64)
-curl -sSL https://github.com/CurtMeadows/straddler/releases/latest/download/straddler_linux_amd64.tar.gz \
-  | tar xz && sudo mv straddler /usr/local/bin/
+curl -sSL https://raw.githubusercontent.com/CurtMeadows/straddler/main/install.sh | sh
 ```
 
-Verify it works:
+Restart your shell (or run `export PATH="$PATH:$HOME/.local/bin"`), then:
+
 ```bash
 straddler version
+```
+
+To install to a different directory:
+```bash
+INSTALL_DIR=~/bin curl -sSL https://raw.githubusercontent.com/CurtMeadows/straddler/main/install.sh | sh
 ```
 
 ### Option 2 — `go install` (requires Go 1.23+)
