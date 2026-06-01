@@ -1,7 +1,6 @@
 package views
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -132,9 +131,6 @@ func fetchMigrateVersionCmd(dsn string) tea.Cmd {
 
 func migrateCmd(dsn, direction string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		_ = ctx // golang-migrate doesn't accept context but we honor the timeout via defer
 		err := db.Migrate(dsn, direction, 0)
 		return msgs.MigrateDoneMsg{Direction: direction, Err: err}
 	}

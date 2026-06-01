@@ -10,6 +10,13 @@ import (
 	"github.com/CurtMeadows/straddler/internal/telemetry"
 )
 
+const (
+	statusCheckTimeout = 5 * time.Second  // how long to wait for an idle queue check
+	dbOpTimeout        = 10 * time.Second // budget for MarkComplete / MarkFailed DB calls
+	heartbeatInterval  = 15 * time.Second // log cadence during a long image copy
+	defaultMaxBackoff  = time.Hour        // cap on exponential retry delay
+)
+
 // WorkerConfig holds parameters for a worker. All workers in a pool share one WorkerConfig.
 // Named WorkerConfig (not Config) to avoid ambiguity with internal/config.Config at call sites.
 type WorkerConfig struct {
@@ -34,7 +41,7 @@ type WorkerConfig struct {
 	// NOT called for transient failures that will be retried. May be nil.
 	OnFailed func(sourceRef, destRef string, errMsg string)
 
-	// OnHeartbeat is called every 15 seconds while a copy is in flight.
+	// OnHeartbeat is called every heartbeatInterval while a copy is in flight.
 	// Lets the run command print "still copying X (15s)" without worker knowing
 	// about stdout formatting. May be nil.
 	OnHeartbeat func(sourceRef string, elapsed time.Duration)
@@ -50,7 +57,7 @@ type worker struct {
 // newWorker creates a worker.
 func newWorker(cfg WorkerConfig, q *db.Queue, r registry.Client) *worker {
 	if cfg.MaxBackoff == 0 {
-		cfg.MaxBackoff = time.Hour
+		cfg.MaxBackoff = defaultMaxBackoff
 	}
 	return &worker{cfg: cfg, queue: q, registry: r}
 }
@@ -86,7 +93,7 @@ func (w *worker) run(ctx context.Context) error {
 			if w.cfg.ExitWhenDone {
 				// Check whether the queue is truly exhausted or whether jobs
 				// are just waiting for their retry delay (next_retry_at > NOW()).
-				checkCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				checkCtx, cancel := context.WithTimeout(context.Background(), statusCheckTimeout)
 				s, err := w.queue.StatusSummaryFor(checkCtx, "")
 				cancel()
 				if err == nil && s.Pending == 0 && s.InProgress == 0 {
@@ -125,7 +132,7 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 		log.Warn("could not check destination, proceeding with copy", "error", err)
 	} else if exists {
 		log.Info("destination already up-to-date, skipping copy")
-		dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		dbCtx, cancel := context.WithTimeout(context.Background(), dbOpTimeout)
 		defer cancel()
 		if dbErr := w.queue.MarkComplete(dbCtx, job.ID); dbErr != nil {
 			log.Error("failed to mark skipped job as complete", "error", dbErr)
@@ -143,7 +150,7 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 	// operator can see the worker is alive during large image transfers.
 	heartbeatDone := make(chan struct{})
 	go func() {
-		ticker := time.NewTicker(15 * time.Second)
+		ticker := time.NewTicker(heartbeatInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -166,7 +173,7 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 	// parent ctx was cancelled (e.g. by SIGTERM mid-copy). Without this, both
 	// MarkFailed and MarkComplete would fail with "context canceled" and the
 	// job would be stranded in_progress until the reaper resets it.
-	dbCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	dbCtx, cancel := context.WithTimeout(context.Background(), dbOpTimeout)
 	defer cancel()
 
 	duration := time.Since(start)

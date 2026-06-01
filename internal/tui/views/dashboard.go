@@ -170,15 +170,6 @@ func (m DashboardModel) renderTiles() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, rendered...)
 }
 
-func fetchSummaryCmd(q *db.Queue) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		s, err := q.StatusSummaryFor(ctx, "")
-		return msgs.StatusSummaryMsg{Summary: s, Err: err}
-	}
-}
-
 func fetchRecentJobsCmd(q *db.Queue) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -191,9 +182,3 @@ func fetchRecentJobsCmd(q *db.Queue) tea.Cmd {
 	}
 }
 
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n-1] + "…"
-}

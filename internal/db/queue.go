@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -250,7 +251,7 @@ func (q *Queue) ListJobs(ctx context.Context, p ListJobsParams) (*JobPage, error
 
 	where := ""
 	if len(whereClauses) > 0 {
-		where = "WHERE " + joinClauses(whereClauses)
+		where = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
 	// Count query.
@@ -282,7 +283,7 @@ func (q *Queue) ListJobs(ctx context.Context, p ListJobsParams) (*JobPage, error
 
 	var jobs []Job
 	for rows.Next() {
-		j, err := scanJobRow(rows)
+		j, err := scanJob(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan job: %w", err)
 		}
@@ -314,7 +315,7 @@ func (q *Queue) ListInProgress(ctx context.Context) ([]Job, error) {
 
 	var jobs []Job
 	for rows.Next() {
-		j, err := scanJobRow(rows)
+		j, err := scanJob(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan job: %w", err)
 		}
@@ -345,47 +346,18 @@ func (q *Queue) GetJob(ctx context.Context, id int64) (*Job, error) {
 	return j, nil
 }
 
-// joinClauses joins SQL WHERE clause fragments with AND.
-func joinClauses(clauses []string) string {
-	result := clauses[0]
-	for _, c := range clauses[1:] {
-		result += " AND " + c
-	}
-	return result
-}
 
-// scanJobRow scans a Job from a pgx.Rows (multi-row iteration).
-// Column order must match the SELECT column list used in ListJobs / ListInProgress / GetJob.
-func scanJobRow(row interface {
-	Scan(dest ...any) error
-}) (*Job, error) {
-	var j Job
-	err := row.Scan(
-		&j.ID, &j.SourceRef, &j.DestRef, &j.Status,
-		&j.AttemptCount, &j.MaxAttempts, &j.LastError,
-		&j.NextRetryAt, &j.ClaimedAt, &j.ClaimedBy,
-		&j.CompletedAt, &j.CreatedAt, &j.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &j, nil
-}
-
-// scanJob reads a single Job from a pgx.Row.
+// scanJob scans a Job from any pgx row type (pgx.Row or pgx.Rows).
 //
-// ⚠️  COLUMN ORDER MATTERS — the Scan arguments must match the column order in
-// every RETURNING clause that feeds this function. If you add or reorder columns
-// in a query's RETURNING list, update this Scan call in lockstep or you will get
-// silent data corruption (pgx maps by position, not by name).
-//
-// Current expected order:
+// ⚠️  Column order must match the SELECT list in every query that feeds this
+// function. pgx maps by position, not name — a mismatch causes silent data
+// corruption. Expected order:
 //
 //	id, source_ref, dest_ref, status,
 //	attempt_count, max_attempts, last_error,
 //	next_retry_at, claimed_at, claimed_by,
 //	completed_at, created_at, updated_at
-func scanJob(row pgx.Row) (*Job, error) {
+func scanJob(row interface{ Scan(dest ...any) error }) (*Job, error) {
 	var j Job
 	err := row.Scan(
 		&j.ID, &j.SourceRef, &j.DestRef, &j.Status,

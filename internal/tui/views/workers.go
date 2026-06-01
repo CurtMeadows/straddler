@@ -235,11 +235,3 @@ func (m *WorkersModel) startWorkerCmd() tea.Cmd {
 	}
 }
 
-func fetchInProgressCmd(q *db.Queue) tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		jobs, err := q.ListInProgress(ctx)
-		return msgs.InProgressJobsMsg{Jobs: jobs, Err: err}
-	}
-}

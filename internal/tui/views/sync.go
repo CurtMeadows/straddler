@@ -59,7 +59,7 @@ type syncResult struct {
 	enqueued int64
 	skipped  int64
 	dryRun   bool
-	tags     []string
+	tagCount int
 }
 
 // NewSync creates a SyncModel.
@@ -319,7 +319,7 @@ func (m SyncModel) updateRunning(msg tea.Msg) (SyncModel, tea.Cmd) {
 			enqueued: msg.Enqueued,
 			skipped:  msg.Skipped,
 			dryRun:   m.dryRun,
-			tags:     m.tags,
+			tagCount: len(m.tags),
 		}
 		return m, nil
 	default:
@@ -407,7 +407,7 @@ func (m SyncModel) View() string {
 		if m.result != nil {
 			sb.WriteString("  ✓ Done!\n\n")
 			if m.result.dryRun {
-				fmt.Fprintf(&sb, "  Would have enqueued: %d tags (dry run)\n", len(m.result.tags))
+				fmt.Fprintf(&sb, "  Would have enqueued: %d tags (dry run)\n", m.result.tagCount)
 			} else {
 				fmt.Fprintf(&sb, "  Enqueued: %d  Skipped: %d\n", m.result.enqueued, m.result.skipped)
 			}

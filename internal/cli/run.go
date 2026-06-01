@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"regexp"
@@ -58,7 +57,7 @@ Examples:
 				cfg.Worker.Concurrency = concurrency
 			}
 
-			// ── Compile optional tag filter ──────────────────────────────────
+			// Parse filter early to fail fast on an invalid regex before hitting the registry.
 			var filter *regexp.Regexp
 			if tagFilter != "" {
 				var err error
@@ -68,13 +67,12 @@ Examples:
 				}
 			}
 
-			// ── Graceful shutdown on Ctrl+C / SIGTERM ────────────────────────
+			// Cancel on SIGTERM/SIGINT; workers finish their current job before exiting.
 			ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 			defer stop()
 
 			ctx = telemetry.WithLogger(ctx, d.logger)
 
-			// ── Fetch tags ───────────────────────────────────────────────────
 			runPrintln(ts(), fmt.Sprintf("fetching tags from %s...", source))
 
 			transport := registry.BuildTransport(cfg.Registry.InsecureSkipTLS)
@@ -116,7 +114,6 @@ Examples:
 				return nil
 			}
 
-			// ── Connect to DB ────────────────────────────────────────────────
 			dbPool, err := db.Open(ctx,
 				cfg.Database.DSN,
 				cfg.Database.MaxConns,
@@ -130,7 +127,6 @@ Examples:
 
 			queue := db.NewQueue(dbPool)
 
-			// ── Enqueue ──────────────────────────────────────────────────────
 			var totalInserted int64
 			for start := 0; start < len(tags); start += batchSize {
 				end := min(start+batchSize, len(tags))
@@ -156,7 +152,6 @@ Examples:
 			))
 			runPrintln(ts(), fmt.Sprintf("starting %d workers", cfg.Worker.Concurrency))
 
-			// ── Wire up event callbacks ──────────────────────────────────────
 			var completed, failed atomic.Int64
 			runStart := time.Now()
 
@@ -199,7 +194,6 @@ Examples:
 				},
 			}
 
-			// ── Run until done ───────────────────────────────────────────────
 			p := worker.NewPool(
 				cfg.Worker.Concurrency,
 				cfg.Worker.StaleTimeout,
@@ -212,7 +206,6 @@ Examples:
 				return fmt.Errorf("worker pool: %w", err)
 			}
 
-			// ── Summary and exit code ────────────────────────────────────────
 			total := completed.Load() + failed.Load()
 			elapsed := time.Since(runStart).Round(time.Second)
 
@@ -261,11 +254,3 @@ func tagFrom(ref string) string {
 	return ref
 }
 
-// workerLogger is the minimal interface needed by newRunCmd for hostname warnings.
-// Satisfied by *slog.Logger.
-type workerLogger interface {
-	Warn(msg string, args ...any)
-}
-
-// compile-time check that *slog.Logger satisfies workerLogger.
-var _ workerLogger = (*slog.Logger)(nil)
