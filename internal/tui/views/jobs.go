@@ -152,7 +152,9 @@ func (m JobsModel) Update(msg tea.Msg) (JobsModel, tea.Cmd) {
 			row := m.tbl.SelectedRow()
 			if len(row) > 0 {
 				var id int64
-				fmt.Sscanf(row[0], "%d", &id)
+				if _, err := fmt.Sscanf(row[0], "%d", &id); err != nil {
+					return m, nil
+				}
 				return m, fetchJobDetailCmd(m.queue, id)
 			}
 		case "esc":

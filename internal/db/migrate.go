@@ -29,7 +29,7 @@ func Migrate(dsn, direction string, steps int) error {
 	if err != nil {
 		return fmt.Errorf("create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	switch direction {
 	case "up":
@@ -65,7 +65,7 @@ func MigrateVersion(dsn string) (uint, bool, error) {
 	if err != nil {
 		return 0, false, fmt.Errorf("create migrator: %w", err)
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	v, dirty, err := m.Version()
 	if errors.Is(err, migrate.ErrNilVersion) {

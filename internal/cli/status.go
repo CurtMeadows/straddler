@@ -56,13 +56,13 @@ Examples:
 				})
 			default:
 				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 3, ' ', 0)
-				fmt.Fprintln(w, "STATUS\tCOUNT")
-				fmt.Fprintln(w, "------\t-----")
-				fmt.Fprintf(w, "pending\t%d\n", summary.Pending)
-				fmt.Fprintf(w, "in_progress\t%d\n", summary.InProgress)
-				fmt.Fprintf(w, "completed\t%d\n", summary.Completed)
-				fmt.Fprintf(w, "failed\t%d\n", summary.Failed)
-				fmt.Fprintf(w, "total\t%d\n", total)
+				_, _ = fmt.Fprintln(w, "STATUS\tCOUNT")
+				_, _ = fmt.Fprintln(w, "------\t-----")
+				_, _ = fmt.Fprintf(w, "pending\t%d\n", summary.Pending)
+				_, _ = fmt.Fprintf(w, "in_progress\t%d\n", summary.InProgress)
+				_, _ = fmt.Fprintf(w, "completed\t%d\n", summary.Completed)
+				_, _ = fmt.Fprintf(w, "failed\t%d\n", summary.Failed)
+				_, _ = fmt.Fprintf(w, "total\t%d\n", total)
 				return w.Flush()
 			}
 		},

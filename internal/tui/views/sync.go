@@ -381,7 +381,7 @@ func (m SyncModel) View() string {
 		if m.tags == nil {
 			sb.WriteString("  Fetching tags from " + m.sourceInput.Value() + "…")
 		} else {
-			sb.WriteString(fmt.Sprintf("  Found %d tags", len(m.tags)))
+			fmt.Fprintf(&sb, "  Found %d tags", len(m.tags))
 			if m.dryRun {
 				sb.WriteString("  " + styles.FormHint.Render("(dry run — no jobs will be created)"))
 			}
@@ -392,11 +392,11 @@ func (m SyncModel) View() string {
 				shown = shown[:10]
 			}
 			for _, t := range shown {
-				sb.WriteString(fmt.Sprintf("  %s:%s  →  %s:%s\n",
-					m.sourceInput.Value(), t, m.destInput.Value(), t))
+				fmt.Fprintf(&sb, "  %s:%s  →  %s:%s\n",
+					m.sourceInput.Value(), t, m.destInput.Value(), t)
 			}
 			if len(m.tags) > 10 {
-				sb.WriteString(fmt.Sprintf("  … and %d more\n", len(m.tags)-10))
+				fmt.Fprintf(&sb, "  … and %d more\n", len(m.tags)-10)
 			}
 			sb.WriteString("\n  " + styles.KeyHintKey.Render("[Enter]") + " confirm  " +
 				styles.KeyHintKey.Render("[b/Esc]") + " back")
