@@ -8,7 +8,7 @@ before:
 
 builds:
   - id: straddler
-    main: ./cmd/straddler
+    dir: cmd/straddler
     binary: straddler
     env:
       - CGO_ENABLED=0
