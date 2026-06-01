@@ -48,9 +48,9 @@ type Config struct {
 // DatabaseConfig holds PostgreSQL connection settings.
 type DatabaseConfig struct {
 	DSN            string        `yaml:"dsn"             env:"DSN"`
-	MaxConns       int32         `yaml:"max_conns"       env:"MAX_CONNS"       envDefault:"10"`
-	MinConns       int32         `yaml:"min_conns"       env:"MIN_CONNS"       envDefault:"2"`
-	ConnectTimeout time.Duration `yaml:"connect_timeout" env:"CONNECT_TIMEOUT" envDefault:"10s"`
+	MaxConns       int32         `yaml:"max_conns"       env:"MAX_CONNS"`
+	MinConns       int32         `yaml:"min_conns"       env:"MIN_CONNS"`
+	ConnectTimeout time.Duration `yaml:"connect_timeout" env:"CONNECT_TIMEOUT"`
 }
 
 // RegistryConfig holds credentials for the source and destination registries.
@@ -60,7 +60,7 @@ type DatabaseConfig struct {
 type RegistryConfig struct {
 	Source          RegistryCredentials `yaml:"source" envPrefix:"SOURCE_"`
 	Dest            RegistryCredentials `yaml:"dest"   envPrefix:"DEST_"`
-	InsecureSkipTLS bool                `yaml:"insecure_skip_tls" env:"INSECURE_SKIP_TLS" envDefault:"false"`
+	InsecureSkipTLS bool                `yaml:"insecure_skip_tls" env:"INSECURE_SKIP_TLS"`
 }
 
 // RegistryCredentials holds the username/password for a single registry endpoint.
@@ -77,17 +77,17 @@ type RegistryCredentials struct {
 
 // WorkerConfig controls the worker pool behaviour.
 type WorkerConfig struct {
-	Concurrency  int           `yaml:"concurrency"   env:"CONCURRENCY"   envDefault:"2"`
-	PollInterval time.Duration `yaml:"poll_interval" env:"POLL_INTERVAL" envDefault:"5s"`
-	MaxAttempts  int           `yaml:"max_attempts"  env:"MAX_ATTEMPTS"  envDefault:"3"`
-	BaseBackoff  time.Duration `yaml:"base_backoff"  env:"BASE_BACKOFF"  envDefault:"30s"`
-	StaleTimeout time.Duration `yaml:"stale_timeout" env:"STALE_TIMEOUT" envDefault:"30m"`
+	Concurrency  int           `yaml:"concurrency"   env:"CONCURRENCY"`
+	PollInterval time.Duration `yaml:"poll_interval" env:"POLL_INTERVAL"`
+	MaxAttempts  int           `yaml:"max_attempts"  env:"MAX_ATTEMPTS"`
+	BaseBackoff  time.Duration `yaml:"base_backoff"  env:"BASE_BACKOFF"`
+	StaleTimeout time.Duration `yaml:"stale_timeout" env:"STALE_TIMEOUT"`
 }
 
 // LogConfig controls log verbosity and output format.
 type LogConfig struct {
-	Level  string `yaml:"level"  env:"LEVEL"  envDefault:"info"`  // debug|info|warn|error
-	Format string `yaml:"format" env:"FORMAT" envDefault:"json"` // json|text
+	Level  string `yaml:"level"  env:"LEVEL"`  // debug|info|warn|error
+	Format string `yaml:"format" env:"FORMAT"` // json|text
 }
 
 // Load reads configuration from the given file path (may be empty) and then
