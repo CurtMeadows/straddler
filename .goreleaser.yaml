@@ -1,0 +1,112 @@
+version: 2
+
+project_name: straddler
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: straddler
+    main: ./cmd/straddler
+    binary: straddler
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: straddler
+    builds: [straddler]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - straddler.yaml.example
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Features
+      regexp: '^feat(\(.+\))?!?:'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^fix(\(.+\))?!?:'
+      order: 1
+    - title: Documentation
+      regexp: '^docs(\(.+\))?!?:'
+      order: 2
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - '^chore:'
+      - '^ci:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+
+dockers:
+  - image_templates:
+      - "ghcr.io/CurtMeadows/straddler:{{ .Version }}-amd64"
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title=straddler"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/CurtMeadows/straddler"
+      - "--label=org.opencontainers.image.licenses=MIT"
+    goarch: amd64
+
+  - image_templates:
+      - "ghcr.io/CurtMeadows/straddler:{{ .Version }}-arm64"
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title=straddler"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/CurtMeadows/straddler"
+      - "--label=org.opencontainers.image.licenses=MIT"
+    goarch: arm64
+
+docker_manifests:
+  - name_template: "ghcr.io/CurtMeadows/straddler:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/CurtMeadows/straddler:{{ .Version }}-amd64"
+      - "ghcr.io/CurtMeadows/straddler:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/CurtMeadows/straddler:latest"
+    image_templates:
+      - "ghcr.io/CurtMeadows/straddler:{{ .Version }}-amd64"
+      - "ghcr.io/CurtMeadows/straddler:{{ .Version }}-arm64"
+
+release:
+  github:
+    owner: CurtMeadows
+    name: straddler
+  name_template: "v{{ .Version }}"
+  draft: false
+  prerelease: auto

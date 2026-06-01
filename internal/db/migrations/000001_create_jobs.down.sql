@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS sync_jobs;
+DROP TYPE  IF EXISTS job_status;

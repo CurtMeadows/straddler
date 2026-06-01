@@ -1,0 +1,48 @@
+# straddler.yaml — copy to straddler.yaml and fill in your values.
+# Every field can also be set via environment variable (STRADDLER_* prefix).
+# CLI flags override both file and env vars.
+
+database:
+  dsn: "postgres://user:pass@localhost:5432/straddler?sslmode=disable"
+  max_conns: 10
+  min_conns: 2
+  connect_timeout: 10s
+
+registry:
+  # Source and destination can be any OCI-compliant registry.
+  # Leave username/password empty to use ~/.docker/config.json + credential helpers.
+  source:
+    username: ""
+    password: ""
+  dest:
+    username: ""
+    password: ""
+  # Set to true only for self-hosted registries with self-signed certificates.
+  insecure_skip_tls: false
+
+worker:
+  concurrency: 4        # parallel copy workers
+  poll_interval: 5s     # how long to wait when the queue is empty
+  max_attempts: 3       # permanent failure after this many tries
+  base_backoff: 30s     # first retry delay; doubles each attempt (capped at 1h)
+  stale_timeout: 30m    # reclaim in_progress jobs stuck longer than this
+
+log:
+  level: info    # debug | info | warn | error
+  format: json   # json | text
+
+# ── Auth recipes ─────────────────────────────────────────────────────────────
+#
+# Amazon ECR:
+#   STRADDLER_REGISTRY_DEST_USERNAME=AWS
+#   STRADDLER_REGISTRY_DEST_PASSWORD=$(aws ecr get-login-password --region us-east-1)
+#   (or install amazon-ecr-credential-helper — no config needed)
+#
+# Google Artifact Registry / GCR:
+#   STRADDLER_REGISTRY_SOURCE_USERNAME=_json_key
+#   STRADDLER_REGISTRY_SOURCE_PASSWORD=$(cat sa-key.json)
+#   (or run `gcloud auth configure-docker` — no config needed)
+#
+# GitHub Container Registry:
+#   STRADDLER_REGISTRY_DEST_USERNAME=myuser
+#   STRADDLER_REGISTRY_DEST_PASSWORD=ghp_myPersonalAccessToken
