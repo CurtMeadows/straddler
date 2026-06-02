@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newMigrateCmd(d *deps) *cobra.Command {
+func newMigrateCmd(env *cmdEnv) *cobra.Command {
 	var steps int
 
 	cmd := &cobra.Command{
@@ -21,20 +21,20 @@ func newMigrateCmd(d *deps) *cobra.Command {
   straddler migrate down        roll back the last migration
   straddler migrate down -n 3   roll back the last 3 migrations`,
 		RunE: func(_ *cobra.Command, args []string) error {
-			dsn := d.cfg.Database.DSN
+			dsn := env.cfg.Database.DSN
 			switch args[0] {
 			case "up":
-				d.logger.Info("running migrate up")
+				env.logger.Info("running migrate up")
 				if err := db.MigrateUp(dsn); err != nil {
 					return fmt.Errorf("migrate up: %w", err)
 				}
-				d.logger.Info("migrate up complete")
+				env.logger.Info("migrate up complete")
 			case "down":
-				d.logger.Info("running migrate down", "steps", steps)
+				env.logger.Info("running migrate down", "steps", steps)
 				if err := db.MigrateDown(dsn, steps); err != nil {
 					return fmt.Errorf("migrate down: %w", err)
 				}
-				d.logger.Info("migrate down complete")
+				env.logger.Info("migrate down complete")
 			}
 			return nil
 		},

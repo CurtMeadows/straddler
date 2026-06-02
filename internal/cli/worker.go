@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newWorkerCmd(d *deps) *cobra.Command {
+func newWorkerCmd(env *cmdEnv) *cobra.Command {
 	var concurrency int
 
 	cmd := &cobra.Command{
@@ -28,7 +28,7 @@ are streamed directly between registries — nothing is written to disk.
 Press Ctrl+C or send SIGTERM to drain in-flight jobs and exit cleanly.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			cfg := d.cfg
+			cfg := env.cfg
 
 			// CLI --concurrency flag overrides the config file value.
 			if cmd.Flags().Changed("concurrency") {
@@ -41,7 +41,7 @@ Press Ctrl+C or send SIGTERM to drain in-flight jobs and exit cleanly.`,
 			defer stop()
 
 			// Store logger in context so workers can retrieve it.
-			ctx = telemetry.WithLogger(ctx, d.logger)
+			ctx = telemetry.WithLogger(ctx, env.logger)
 
 			pool, err := db.Open(ctx,
 				cfg.Database.DSN,
@@ -63,7 +63,7 @@ Press Ctrl+C or send SIGTERM to drain in-flight jobs and exit cleanly.`,
 
 			hostname, err := os.Hostname()
 			if err != nil {
-				d.logger.Warn("could not determine hostname, using 'unknown'", "error", err)
+				env.logger.Warn("could not determine hostname, using 'unknown'", "error", err)
 				hostname = "unknown"
 			}
 
@@ -82,13 +82,13 @@ Press Ctrl+C or send SIGTERM to drain in-flight jobs and exit cleanly.`,
 				regClient,
 			)
 
-			d.logger.Info("worker pool started — press Ctrl+C to stop")
+			env.logger.Info("worker pool started — press Ctrl+C to stop")
 
 			if err := p.Run(ctx); err != nil {
 				return fmt.Errorf("worker pool: %w", err)
 			}
 
-			d.logger.Info("worker pool stopped")
+			env.logger.Info("worker pool stopped")
 			return nil
 		},
 	}

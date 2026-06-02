@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newStatusCmd(d *deps) *cobra.Command {
+func newStatusCmd(env *cmdEnv) *cobra.Command {
 	var (
 		sourcePrefix string
 		format       string
@@ -28,10 +28,10 @@ Examples:
 			ctx := cmd.Context()
 
 			pool, err := db.Open(ctx,
-				d.cfg.Database.DSN,
-				d.cfg.Database.MaxConns,
-				d.cfg.Database.MinConns,
-				d.cfg.Database.ConnectTimeout,
+				env.cfg.Database.DSN,
+				env.cfg.Database.MaxConns,
+				env.cfg.Database.MinConns,
+				env.cfg.Database.ConnectTimeout,
 			)
 			if err != nil {
 				return fmt.Errorf("connect to database: %w", err)

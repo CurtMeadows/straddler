@@ -17,7 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRunCmd(d *deps) *cobra.Command {
+func newRunCmd(env *cmdEnv) *cobra.Command {
 	var (
 		source       string
 		dest         string
@@ -51,7 +51,7 @@ Examples:
     --concurrency 4`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			cfg := d.cfg
+			cfg := env.cfg
 
 			if cmd.Flags().Changed("concurrency") {
 				cfg.Worker.Concurrency = concurrency
@@ -71,7 +71,7 @@ Examples:
 			ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 			defer stop()
 
-			ctx = telemetry.WithLogger(ctx, d.logger)
+			ctx = telemetry.WithLogger(ctx, env.logger)
 
 			runPrintln(ts(), fmt.Sprintf("fetching tags from %s...", source))
 
@@ -144,7 +144,7 @@ Examples:
 
 			hostname, err := os.Hostname()
 			if err != nil {
-				d.logger.Warn("could not determine hostname, using 'unknown'", "error", err)
+				env.logger.Warn("could not determine hostname, using 'unknown'", "error", err)
 				hostname = "unknown"
 			}
 

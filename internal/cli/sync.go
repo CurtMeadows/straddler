@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newSyncCmd(d *deps) *cobra.Command {
+func newSyncCmd(env *cmdEnv) *cobra.Command {
 	var (
 		source       string
 		dest         string
@@ -58,7 +58,7 @@ Examples:
 				}
 			}
 
-			logger := d.logger.With("source", source, "dest", dest)
+			logger := env.logger.With("source", source, "dest", dest)
 
 			// ── Build tag list ────────────────────────────────────────────────
 			var tags []string
@@ -71,10 +71,10 @@ Examples:
 				}
 				logger.Info("using explicit tag list", "count", len(tags))
 			} else {
-				transport := registry.BuildTransport(d.cfg.Registry.InsecureSkipTLS)
+				transport := registry.BuildTransport(env.cfg.Registry.InsecureSkipTLS)
 				client := registry.NewRemoteClient(
-					registry.BuildKeychain(d.cfg.Registry.Source),
-					registry.BuildKeychain(d.cfg.Registry.Dest),
+					registry.BuildKeychain(env.cfg.Registry.Source),
+					registry.BuildKeychain(env.cfg.Registry.Dest),
 					transport,
 				)
 
@@ -118,10 +118,10 @@ Examples:
 
 			// ── Enqueue in batches ────────────────────────────────────────────
 			pool, err := db.Open(ctx,
-				d.cfg.Database.DSN,
-				d.cfg.Database.MaxConns,
-				d.cfg.Database.MinConns,
-				d.cfg.Database.ConnectTimeout,
+				env.cfg.Database.DSN,
+				env.cfg.Database.MaxConns,
+				env.cfg.Database.MinConns,
+				env.cfg.Database.ConnectTimeout,
 			)
 			if err != nil {
 				return fmt.Errorf("connect to database: %w", err)
@@ -139,7 +139,7 @@ Examples:
 					params[i] = db.EnqueueParams{
 						SourceRef:   source + ":" + tag,
 						DestRef:     dest + ":" + tag,
-						MaxAttempts: d.cfg.Worker.MaxAttempts,
+						MaxAttempts: env.cfg.Worker.MaxAttempts,
 					}
 				}
 

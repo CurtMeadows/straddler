@@ -12,7 +12,7 @@ import (
 // deps holds shared resources initialised once in PersistentPreRunE and
 // closed over by each subcommand's RunE. Keeping them here avoids global
 // variables while still giving every command access to config and logging.
-type deps struct {
+type cmdEnv struct {
 	cfg    *config.Config
 	logger *slog.Logger
 }
@@ -26,7 +26,7 @@ func NewRootCommand() *cobra.Command {
 		logFmt   string
 	)
 
-	d := &deps{}
+	env := &cmdEnv{}
 
 	root := &cobra.Command{
 		Use:   "straddler",
@@ -60,9 +60,9 @@ self-hosted, or any OCI-compliant registry.`,
 				cfg.Log.Format = logFmt
 			}
 
-			d.cfg = cfg
-			d.logger = telemetry.New(cfg.Log.Level, cfg.Log.Format)
-			slog.SetDefault(d.logger)
+			env.cfg = cfg
+			env.logger = telemetry.New(cfg.Log.Level, cfg.Log.Format)
+			slog.SetDefault(env.logger)
 			return nil
 		},
 	}
@@ -72,12 +72,12 @@ self-hosted, or any OCI-compliant registry.`,
 	root.PersistentFlags().StringVar(&logFmt, "log-format", "", "log output format: json|text")
 
 	root.AddCommand(
-		newRunCmd(d),
-		newSyncCmd(d),
-		newWorkerCmd(d),
-		newMigrateCmd(d),
-		newStatusCmd(d),
-		newTUICmd(d),
+		newRunCmd(env),
+		newSyncCmd(env),
+		newWorkerCmd(env),
+		newMigrateCmd(env),
+		newStatusCmd(env),
+		newTUICmd(env),
 		newVersionCmd(),
 	)
 
