@@ -204,27 +204,28 @@ func buildWorkerConfig(workerID string, cfg *config.Config, completed, failed *a
 		MaxAttempts:  cfg.Worker.MaxAttempts,
 		BaseBackoff:  cfg.Worker.BaseBackoff,
 		ExitWhenDone: true,
+		Callbacks: worker.WorkerCallbacks{
+			OnComplete: func(sourceRef, _ string, duration time.Duration) {
+				completed.Add(1)
+				label := tagFrom(sourceRef)
+				if duration == 0 {
+					runPrintln(ts(), fmt.Sprintf("✓  %-45s already up-to-date", label))
+				} else {
+					runPrintln(ts(), fmt.Sprintf("✓  %-45s %s", label, duration.Round(time.Second)))
+				}
+			},
 
-		OnComplete: func(sourceRef, _ string, duration time.Duration) {
-			completed.Add(1)
-			label := tagFrom(sourceRef)
-			if duration == 0 {
-				runPrintln(ts(), fmt.Sprintf("✓  %-45s already up-to-date", label))
-			} else {
-				runPrintln(ts(), fmt.Sprintf("✓  %-45s %s", label, duration.Round(time.Second)))
-			}
-		},
+			OnFailed: func(sourceRef, _ string, errMsg string) {
+				failed.Add(1)
+				runPrintln(ts(), fmt.Sprintf(
+					"✗  %-45s failed after %d attempts: %s",
+					tagFrom(sourceRef), cfg.Worker.MaxAttempts, errMsg,
+				))
+			},
 
-		OnFailed: func(sourceRef, _ string, errMsg string) {
-			failed.Add(1)
-			runPrintln(ts(), fmt.Sprintf(
-				"✗  %-45s failed after %d attempts: %s",
-				tagFrom(sourceRef), cfg.Worker.MaxAttempts, errMsg,
-			))
-		},
-
-		OnHeartbeat: func(sourceRef string, elapsed time.Duration) {
-			runPrintln(ts(), fmt.Sprintf("   still copying %s (%s)…", tagFrom(sourceRef), elapsed))
+			OnHeartbeat: func(sourceRef string, elapsed time.Duration) {
+				runPrintln(ts(), fmt.Sprintf("   still copying %s (%s)…", tagFrom(sourceRef), elapsed))
+			},
 		},
 	}
 }

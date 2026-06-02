@@ -17,6 +17,21 @@ const (
 	defaultMaxBackoff  = time.Hour        // cap on exponential retry delay
 )
 
+// WorkerCallbacks holds optional event hooks called during job processing.
+// All functions must be safe for concurrent use from multiple worker goroutines.
+// Nil functions are silently skipped.
+type WorkerCallbacks struct {
+	// OnComplete is called after a job is successfully marked complete in the DB.
+	OnComplete func(sourceRef, destRef string, duration time.Duration)
+
+	// OnFailed is called after a job permanently exhausts all retry attempts.
+	// Not called for transient failures that will be retried.
+	OnFailed func(sourceRef, destRef string, errMsg string)
+
+	// OnHeartbeat is called every heartbeatInterval while a copy is in flight.
+	OnHeartbeat func(sourceRef string, elapsed time.Duration)
+}
+
 // WorkerConfig holds parameters for a worker. All workers in a pool share one WorkerConfig.
 // Named WorkerConfig (not Config) to avoid ambiguity with internal/config.Config at call sites.
 type WorkerConfig struct {
@@ -33,18 +48,8 @@ type WorkerConfig struct {
 	// command to exit automatically without a Ctrl+C.
 	ExitWhenDone bool
 
-	// OnComplete is called after a job is successfully marked complete in the DB.
-	// Called from within the worker goroutine — must be goroutine-safe. May be nil.
-	OnComplete func(sourceRef, destRef string, duration time.Duration)
-
-	// OnFailed is called after a job is permanently exhausted (all attempts used).
-	// NOT called for transient failures that will be retried. May be nil.
-	OnFailed func(sourceRef, destRef string, errMsg string)
-
-	// OnHeartbeat is called every heartbeatInterval while a copy is in flight.
-	// Lets the run command print "still copying X (15s)" without worker knowing
-	// about stdout formatting. May be nil.
-	OnHeartbeat func(sourceRef string, elapsed time.Duration)
+	// Callbacks are optional event hooks. Zero value (all nil) is valid.
+	Callbacks WorkerCallbacks
 }
 
 // worker processes jobs from the queue one at a time.
@@ -137,8 +142,8 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 		if dbErr := w.queue.MarkComplete(dbCtx, job.ID); dbErr != nil {
 			log.Error("failed to mark skipped job as complete", "error", dbErr)
 		}
-		if w.cfg.OnComplete != nil {
-			w.cfg.OnComplete(job.SourceRef, job.DestRef, 0)
+		if w.cfg.Callbacks.OnComplete != nil {
+			w.cfg.Callbacks.OnComplete(job.SourceRef, job.DestRef, 0)
 		}
 		return
 	}
@@ -159,8 +164,8 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 			case <-ticker.C:
 				elapsed := time.Since(start).Round(time.Second)
 				log.Info("still copying…", slog.Duration("elapsed", elapsed))
-				if w.cfg.OnHeartbeat != nil {
-					w.cfg.OnHeartbeat(job.SourceRef, elapsed)
+				if w.cfg.Callbacks.OnHeartbeat != nil {
+					w.cfg.Callbacks.OnHeartbeat(job.SourceRef, elapsed)
 				}
 			}
 		}
@@ -188,8 +193,8 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 			log.Error("failed to mark job as failed", "error", dbErr)
 		}
 		// Fire OnFailed only on permanent exhaustion, not transient retries.
-		if w.cfg.OnFailed != nil && job.AttemptCount >= job.MaxAttempts {
-			w.cfg.OnFailed(job.SourceRef, job.DestRef, err.Error())
+		if w.cfg.Callbacks.OnFailed != nil && job.AttemptCount >= job.MaxAttempts {
+			w.cfg.Callbacks.OnFailed(job.SourceRef, job.DestRef, err.Error())
 		}
 		return
 	}
@@ -199,8 +204,8 @@ func (w *worker) process(ctx context.Context, logger *slog.Logger, job *db.Job) 
 	if dbErr := w.queue.MarkComplete(dbCtx, job.ID); dbErr != nil {
 		log.Error("failed to mark job as complete", "error", dbErr)
 	}
-	if w.cfg.OnComplete != nil {
-		w.cfg.OnComplete(job.SourceRef, job.DestRef, duration)
+	if w.cfg.Callbacks.OnComplete != nil {
+		w.cfg.Callbacks.OnComplete(job.SourceRef, job.DestRef, duration)
 	}
 }
 
