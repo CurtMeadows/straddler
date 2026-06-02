@@ -303,7 +303,7 @@ func (m SyncModel) updatePreview(msg tea.Msg) (SyncModel, tea.Cmd) {
 			}
 			m.step = StepRunning
 			return m, tea.Batch(
-				enqueueCmd(m.queue, m.cfg, m.sourceInput.Value(), m.destInput.Value(), m.tags, m.batchSize(), m.dryRun),
+				enqueueCmd(m.queue, m.sourceInput.Value(), m.destInput.Value(), m.tags, m.cfg.Worker.MaxAttempts, m.batchSize(), m.dryRun),
 				m.spinner.Tick,
 			)
 		}
@@ -517,35 +517,18 @@ func fetchTagsCmd(reg registry.Client, source, tagFilter string) tea.Cmd {
 	}
 }
 
-func enqueueCmd(q *db.Queue, cfg *config.Config, source, dest string, tags []string, batchSize int, dryRun bool) tea.Cmd {
+func enqueueCmd(q *db.Queue, source, dest string, tags []string, maxAttempts, batchSize int, dryRun bool) tea.Cmd {
 	return func() tea.Msg {
 		if dryRun {
-			return msgs.SyncEnqueuedMsg{Enqueued: int64(len(tags)), Skipped: 0}
+			return msgs.SyncEnqueuedMsg{Enqueued: int64(len(tags))}
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		var total int64
-		for start := 0; start < len(tags); start += batchSize {
-			end := start + batchSize
-			if end > len(tags) {
-				end = len(tags)
-			}
-			params := make([]db.EnqueueParams, end-start)
-			for i, t := range tags[start:end] {
-				params[i] = db.EnqueueParams{
-					SourceRef:   source + ":" + t,
-					DestRef:     dest + ":" + t,
-					MaxAttempts: cfg.Worker.MaxAttempts,
-				}
-			}
-			n, err := q.BulkEnqueue(ctx, params)
-			if err != nil {
-				return msgs.SyncEnqueuedMsg{Err: err}
-			}
-			total += n
+		inserted, err := q.BulkEnqueueTags(ctx, source, dest, tags, maxAttempts, batchSize)
+		if err != nil {
+			return msgs.SyncEnqueuedMsg{Err: err}
 		}
-		skipped := int64(len(tags)) - total
-		return msgs.SyncEnqueuedMsg{Enqueued: total, Skipped: skipped}
+		return msgs.SyncEnqueuedMsg{Enqueued: inserted, Skipped: int64(len(tags)) - inserted}
 	}
 }

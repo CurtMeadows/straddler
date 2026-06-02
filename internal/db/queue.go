@@ -63,6 +63,34 @@ func (q *Queue) BulkEnqueue(ctx context.Context, jobs []EnqueueParams) (int64, e
 	return inserted, nil
 }
 
+// BulkEnqueueTags builds copy jobs from a flat tag list and enqueues them in
+// batches. It is the single canonical implementation of the batch-enqueue loop;
+// callers (CLI and TUI) should use this rather than reimplementing chunking.
+//
+// Returns the number of newly inserted rows and the total number of tags.
+func (q *Queue) BulkEnqueueTags(ctx context.Context, source, dest string, tags []string, maxAttempts, batchSize int) (inserted int64, err error) {
+	if batchSize <= 0 {
+		batchSize = 100
+	}
+	for start := 0; start < len(tags); start += batchSize {
+		end := min(start+batchSize, len(tags))
+		params := make([]EnqueueParams, end-start)
+		for i, tag := range tags[start:end] {
+			params[i] = EnqueueParams{
+				SourceRef:   source + ":" + tag,
+				DestRef:     dest + ":" + tag,
+				MaxAttempts: maxAttempts,
+			}
+		}
+		n, err := q.BulkEnqueue(ctx, params)
+		if err != nil {
+			return inserted, err
+		}
+		inserted += n
+	}
+	return inserted, nil
+}
+
 // ClaimNextJob atomically picks the next available job and marks it in_progress.
 //
 // The FOR UPDATE SKIP LOCKED subquery means:

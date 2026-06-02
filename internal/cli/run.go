@@ -127,22 +127,9 @@ Examples:
 
 			queue := db.NewQueue(dbPool)
 
-			var totalInserted int64
-			for start := 0; start < len(tags); start += batchSize {
-				end := min(start+batchSize, len(tags))
-				params := make([]db.EnqueueParams, end-start)
-				for i, tag := range tags[start:end] {
-					params[i] = db.EnqueueParams{
-						SourceRef:   source + ":" + tag,
-						DestRef:     dest + ":" + tag,
-						MaxAttempts: cfg.Worker.MaxAttempts,
-					}
-				}
-				n, err := queue.BulkEnqueue(ctx, params)
-				if err != nil {
-					return fmt.Errorf("enqueue batch: %w", err)
-				}
-				totalInserted += n
+			totalInserted, err := queue.BulkEnqueueTags(ctx, source, dest, tags, cfg.Worker.MaxAttempts, batchSize)
+			if err != nil {
+				return fmt.Errorf("enqueue tags: %w", err)
 			}
 
 			skipped := int64(len(tags)) - totalInserted
