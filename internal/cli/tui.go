@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newTUICmd(d *deps) *cobra.Command {
+func newTUICmd(env *cmdEnv) *cobra.Command {
 	return &cobra.Command{
 		Use:   "tui",
 		Short: "Launch the interactive terminal dashboard",
@@ -16,7 +16,7 @@ Navigate with Tab / Shift+Tab or number keys:
 
 Press Q or Ctrl+C to exit.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return tui.Run(d.cfg)
+			return tui.Run(env.cfg)
 		},
 	}
 }

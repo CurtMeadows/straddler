@@ -41,10 +41,10 @@ type SyncModel struct {
 	step          SyncStep
 	sourceInput   textinput.Model
 	destInput     textinput.Model
-	tagFilter     textinput.Model
+	tagFilterInput     textinput.Model
 	batchSizeInput textinput.Model
 	dryRun        bool
-	focusIdx      int // active input in StepOptions (0=tagFilter, 1=batchSize, 2=dryRun)
+	activeField      int // active input in StepOptions (0=tagFilterInput, 1=batchSize, 2=dryRun)
 	validationErr string
 
 	tags   []string
@@ -59,7 +59,7 @@ type syncResult struct {
 	enqueued int64
 	skipped  int64
 	dryRun   bool
-	tags     []string
+	tagCount int
 }
 
 // NewSync creates a SyncModel.
@@ -92,7 +92,7 @@ func NewSync(cfg *config.Config, queue *db.Queue, reg registry.Client) SyncModel
 		step:           StepSource,
 		sourceInput:    src,
 		destInput:      dst,
-		tagFilter:      tf,
+		tagFilterInput:      tf,
 		batchSizeInput: bs,
 		spinner:        sp,
 	}
@@ -109,10 +109,10 @@ func (m *SyncModel) Reset() {
 	m.step = StepSource
 	m.sourceInput.SetValue("")
 	m.destInput.SetValue("")
-	m.tagFilter.SetValue("")
+	m.tagFilterInput.SetValue("")
 	m.batchSizeInput.SetValue("100")
 	m.dryRun = false
-	m.focusIdx = 0
+	m.activeField = 0
 	m.validationErr = ""
 	m.tags = nil
 	m.result = nil
@@ -187,8 +187,8 @@ func (m SyncModel) updateDest(msg tea.Msg) (SyncModel, tea.Cmd) {
 			m.validationErr = ""
 			m.step = StepOptions
 			m.destInput.Blur()
-			m.focusIdx = 0
-			m.tagFilter.Focus()
+			m.activeField = 0
+			m.tagFilterInput.Focus()
 			return m, textinput.Blink
 		default:
 			var cmd tea.Cmd
@@ -209,36 +209,36 @@ func (m SyncModel) updateOptions(msg tea.Msg) (SyncModel, tea.Cmd) {
 		case "esc":
 			m.validationErr = ""
 			m.step = StepDest
-			m.tagFilter.Blur()
+			m.tagFilterInput.Blur()
 			m.batchSizeInput.Blur()
 			m.destInput.Focus()
-			m.focusIdx = 0
+			m.activeField = 0
 			return m, textinput.Blink
 		case "tab", "shift+tab":
-			// Cycle through: tagFilter (0), batchSize (1), dryRun toggle (2), proceed (3)
+			// Cycle through: tagFilterInput (0), batchSize (1), dryRun toggle (2), proceed (3)
 			if msg.String() == "tab" {
-				m.focusIdx = (m.focusIdx + 1) % 4
+				m.activeField = (m.activeField + 1) % 4
 			} else {
-				m.focusIdx = (m.focusIdx - 1 + 4) % 4
+				m.activeField = (m.activeField - 1 + 4) % 4
 			}
-			m.tagFilter.Blur()
+			m.tagFilterInput.Blur()
 			m.batchSizeInput.Blur()
-			switch m.focusIdx {
+			switch m.activeField {
 			case 0:
-				m.tagFilter.Focus()
+				m.tagFilterInput.Focus()
 			case 1:
 				m.batchSizeInput.Focus()
 			}
 			return m, textinput.Blink
 		case "enter":
-			if m.focusIdx == 2 {
+			if m.activeField == 2 {
 				// Toggle dry-run.
 				m.dryRun = !m.dryRun
 				return m, nil
 			}
-			if m.focusIdx == 3 || m.focusIdx == 0 || m.focusIdx == 1 {
+			if m.activeField == 3 || m.activeField == 0 || m.activeField == 1 {
 				// Proceed to preview.
-				if err := validateTagFilter(m.tagFilter.Value()); err != nil {
+				if err := validateTagFilter(m.tagFilterInput.Value()); err != nil {
 					m.validationErr = err.Error()
 					return m, nil
 				}
@@ -248,20 +248,20 @@ func (m SyncModel) updateOptions(msg tea.Msg) (SyncModel, tea.Cmd) {
 				}
 				m.validationErr = ""
 				m.step = StepPreview
-				m.tagFilter.Blur()
+				m.tagFilterInput.Blur()
 				m.batchSizeInput.Blur()
-				return m, fetchTagsCmd(m.regClient, m.sourceInput.Value(), m.tagFilter.Value())
+				return m, fetchTagsCmd(m.regClient, m.sourceInput.Value(), m.tagFilterInput.Value())
 			}
 		case " ":
-			if m.focusIdx == 2 {
+			if m.activeField == 2 {
 				m.dryRun = !m.dryRun
 				return m, nil
 			}
 		default:
 			var cmd tea.Cmd
-			switch m.focusIdx {
+			switch m.activeField {
 			case 0:
-				m.tagFilter, cmd = m.tagFilter.Update(msg)
+				m.tagFilterInput, cmd = m.tagFilterInput.Update(msg)
 			case 1:
 				m.batchSizeInput, cmd = m.batchSizeInput.Update(msg)
 			}
@@ -269,9 +269,9 @@ func (m SyncModel) updateOptions(msg tea.Msg) (SyncModel, tea.Cmd) {
 		}
 	default:
 		var cmd tea.Cmd
-		switch m.focusIdx {
+		switch m.activeField {
 		case 0:
-			m.tagFilter, cmd = m.tagFilter.Update(msg)
+			m.tagFilterInput, cmd = m.tagFilterInput.Update(msg)
 		case 1:
 			m.batchSizeInput, cmd = m.batchSizeInput.Update(msg)
 		}
@@ -295,7 +295,7 @@ func (m SyncModel) updatePreview(msg tea.Msg) (SyncModel, tea.Cmd) {
 		switch msg.String() {
 		case "b", "esc":
 			m.step = StepOptions
-			m.tagFilter.Focus()
+			m.tagFilterInput.Focus()
 			return m, textinput.Blink
 		case "enter":
 			if m.tags == nil {
@@ -303,7 +303,7 @@ func (m SyncModel) updatePreview(msg tea.Msg) (SyncModel, tea.Cmd) {
 			}
 			m.step = StepRunning
 			return m, tea.Batch(
-				enqueueCmd(m.queue, m.cfg, m.sourceInput.Value(), m.destInput.Value(), m.tags, m.batchSize(), m.dryRun),
+				enqueueCmd(m.queue, m.sourceInput.Value(), m.destInput.Value(), m.tags, m.cfg.Worker.MaxAttempts, m.batchSize(), m.dryRun),
 				m.spinner.Tick,
 			)
 		}
@@ -319,7 +319,7 @@ func (m SyncModel) updateRunning(msg tea.Msg) (SyncModel, tea.Cmd) {
 			enqueued: msg.Enqueued,
 			skipped:  msg.Skipped,
 			dryRun:   m.dryRun,
-			tags:     m.tags,
+			tagCount: len(m.tags),
 		}
 		return m, nil
 	default:
@@ -363,14 +363,14 @@ func (m SyncModel) View() string {
 	case StepOptions:
 		sb.WriteString("  " + styles.FormLabel.Render("Source:") + "  " + styles.Subtle.Render(m.sourceInput.Value()) + "\n")
 		sb.WriteString("  " + styles.FormLabel.Render("Dest:") + "    " + styles.Subtle.Render(m.destInput.Value()) + "\n\n")
-		sb.WriteString(m.renderOption(0, "Tag filter regex:", m.tagFilter.View()))
+		sb.WriteString(m.renderOption(0, "Tag filter regex:", m.tagFilterInput.View()))
 		sb.WriteString(m.renderOption(1, "Batch size:", m.batchSizeInput.View()))
 		dryRunVal := "[ ]"
 		if m.dryRun {
 			dryRunVal = "[x]"
 		}
 		dryLabel := "Dry run:"
-		if m.focusIdx == 2 {
+		if m.activeField == 2 {
 			dryLabel = styles.TabActive.Render(dryLabel)
 		} else {
 			dryLabel = styles.FormLabel.Render(dryLabel)
@@ -407,7 +407,7 @@ func (m SyncModel) View() string {
 		if m.result != nil {
 			sb.WriteString("  ✓ Done!\n\n")
 			if m.result.dryRun {
-				fmt.Fprintf(&sb, "  Would have enqueued: %d tags (dry run)\n", len(m.result.tags))
+				fmt.Fprintf(&sb, "  Would have enqueued: %d tags (dry run)\n", m.result.tagCount)
 			} else {
 				fmt.Fprintf(&sb, "  Enqueued: %d  Skipped: %d\n", m.result.enqueued, m.result.skipped)
 			}
@@ -446,7 +446,7 @@ func (m SyncModel) renderBreadcrumb() string {
 
 func (m SyncModel) renderOption(idx int, label, inputView string) string {
 	l := label
-	if m.focusIdx == idx {
+	if m.activeField == idx {
 		l = styles.TabActive.Render(l)
 	} else {
 		l = styles.FormLabel.Render(l)
@@ -517,35 +517,18 @@ func fetchTagsCmd(reg registry.Client, source, tagFilter string) tea.Cmd {
 	}
 }
 
-func enqueueCmd(q *db.Queue, cfg *config.Config, source, dest string, tags []string, batchSize int, dryRun bool) tea.Cmd {
+func enqueueCmd(q *db.Queue, source, dest string, tags []string, maxAttempts, batchSize int, dryRun bool) tea.Cmd {
 	return func() tea.Msg {
 		if dryRun {
-			return msgs.SyncEnqueuedMsg{Enqueued: int64(len(tags)), Skipped: 0}
+			return msgs.SyncEnqueuedMsg{Enqueued: int64(len(tags))}
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		var total int64
-		for start := 0; start < len(tags); start += batchSize {
-			end := start + batchSize
-			if end > len(tags) {
-				end = len(tags)
-			}
-			params := make([]db.EnqueueParams, end-start)
-			for i, t := range tags[start:end] {
-				params[i] = db.EnqueueParams{
-					SourceRef:   source + ":" + t,
-					DestRef:     dest + ":" + t,
-					MaxAttempts: cfg.Worker.MaxAttempts,
-				}
-			}
-			n, err := q.BulkEnqueue(ctx, params)
-			if err != nil {
-				return msgs.SyncEnqueuedMsg{Err: err}
-			}
-			total += n
+		inserted, err := q.BulkEnqueueTags(ctx, source, dest, tags, maxAttempts, batchSize)
+		if err != nil {
+			return msgs.SyncEnqueuedMsg{Err: err}
 		}
-		skipped := int64(len(tags)) - total
-		return msgs.SyncEnqueuedMsg{Enqueued: total, Skipped: skipped}
+		return msgs.SyncEnqueuedMsg{Enqueued: inserted, Skipped: int64(len(tags)) - inserted}
 	}
 }

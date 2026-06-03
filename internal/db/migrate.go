@@ -14,56 +14,53 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// Migrate applies or rolls back schema migrations.
-//
-//	direction = "up"   — apply all pending migrations
-//	direction = "down" — roll back; steps > 0 limits how many, 0 means all
-func Migrate(dsn, direction string, steps int) error {
-	src, err := iofs.New(migrationsFS, "migrations")
+// MigrateUp applies all pending migrations.
+func MigrateUp(dsn string) error {
+	m, err := newMigrator(dsn)
 	if err != nil {
-		return fmt.Errorf("load embedded migrations: %w", err)
-	}
-
-	// golang-migrate's pgx/v5 driver expects "pgx5://" scheme.
-	m, err := migrate.NewWithSourceInstance("iofs", src, "pgx5://"+stripScheme(dsn))
-	if err != nil {
-		return fmt.Errorf("create migrator: %w", err)
+		return err
 	}
 	defer func() { _, _ = m.Close() }()
 
-	switch direction {
-	case "up":
-		err = m.Up()
-	case "down":
-		if steps > 0 {
-			err = m.Steps(-steps)
-		} else {
-			err = m.Down()
-		}
-	default:
-		return fmt.Errorf("direction must be 'up' or 'down', got %q", direction)
-	}
-
-	if errors.Is(err, migrate.ErrNoChange) {
-		return nil // nothing to do — not an error
-	}
-	if err != nil {
-		return fmt.Errorf("migrate %s: %w", direction, err)
+	if err := m.Up(); errors.Is(err, migrate.ErrNoChange) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("migrate up: %w", err)
 	}
 	return nil
 }
 
-// MigrateVersion returns the current applied migration version number.
-// Returns (0, false, nil) when no migrations have been applied yet.
-func MigrateVersion(dsn string) (uint, bool, error) {
-	src, err := iofs.New(migrationsFS, "migrations")
+// MigrateDown rolls back migrations.
+// steps > 0 limits how many are rolled back; 0 rolls back all.
+func MigrateDown(dsn string, steps int) error {
+	m, err := newMigrator(dsn)
 	if err != nil {
-		return 0, false, fmt.Errorf("load embedded migrations: %w", err)
+		return err
+	}
+	defer func() { _, _ = m.Close() }()
+
+	var migrateErr error
+	if steps > 0 {
+		migrateErr = m.Steps(-steps)
+	} else {
+		migrateErr = m.Down()
 	}
 
-	m, err := migrate.NewWithSourceInstance("iofs", src, "pgx5://"+stripScheme(dsn))
+	if errors.Is(migrateErr, migrate.ErrNoChange) {
+		return nil
+	}
+	if migrateErr != nil {
+		return fmt.Errorf("migrate down: %w", migrateErr)
+	}
+	return nil
+}
+
+// MigrateVersion returns the current applied migration version.
+// Returns (0, false, nil) when no migrations have been applied yet.
+func MigrateVersion(dsn string) (uint, bool, error) {
+	m, err := newMigrator(dsn)
 	if err != nil {
-		return 0, false, fmt.Errorf("create migrator: %w", err)
+		return 0, false, err
 	}
 	defer func() { _, _ = m.Close() }()
 
@@ -77,8 +74,19 @@ func MigrateVersion(dsn string) (uint, bool, error) {
 	return v, dirty, nil
 }
 
-// stripScheme removes any existing postgres scheme prefix so we can
-// prepend "pgx5://" without doubling it.
+func newMigrator(dsn string) (*migrate.Migrate, error) {
+	src, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return nil, fmt.Errorf("load embedded migrations: %w", err)
+	}
+	// golang-migrate's pgx/v5 driver expects "pgx5://" scheme.
+	m, err := migrate.NewWithSourceInstance("iofs", src, "pgx5://"+stripScheme(dsn))
+	if err != nil {
+		return nil, fmt.Errorf("create migrator: %w", err)
+	}
+	return m, nil
+}
+
 func stripScheme(dsn string) string {
 	for _, prefix := range []string{"postgres://", "postgresql://"} {
 		if strings.HasPrefix(dsn, prefix) {

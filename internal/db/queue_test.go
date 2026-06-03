@@ -34,7 +34,7 @@ func startTestDB(t *testing.T) *pgxpool.Pool {
 	require.NoError(t, err)
 
 	// Apply migrations so the schema is ready.
-	require.NoError(t, Migrate(dsn, "up", 0))
+	require.NoError(t, MigrateUp(dsn))
 
 	pool, err := Open(ctx, dsn, 10, 2, 10*time.Second)
 	require.NoError(t, err)

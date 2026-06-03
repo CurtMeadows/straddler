@@ -1,5 +1,6 @@
-# Compiled binaries
+# Compiled binaries and GoReleaser output
 bin/
+dist/
 /straddler
 /straddler.exe
 

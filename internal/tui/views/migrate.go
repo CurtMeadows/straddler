@@ -1,7 +1,6 @@
 package views
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -54,7 +53,7 @@ func (m MigrateModel) Update(msg tea.Msg) (MigrateModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case components.ConfirmYesMsg:
-		return m, migrateCmd(m.dsn, "down")
+		return m, migrateDownCmd(m.dsn)
 
 	case components.ConfirmNoMsg:
 		return m, nil
@@ -80,7 +79,7 @@ func (m MigrateModel) Update(msg tea.Msg) (MigrateModel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "u":
-			return m, migrateCmd(m.dsn, "up")
+			return m, migrateUpCmd(m.dsn)
 		case "d":
 			m.confirm.Show("Roll back the last migration?")
 			return m, nil
@@ -130,12 +129,14 @@ func fetchMigrateVersionCmd(dsn string) tea.Cmd {
 	}
 }
 
-func migrateCmd(dsn, direction string) tea.Cmd {
+func migrateUpCmd(dsn string) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		_ = ctx // golang-migrate doesn't accept context but we honor the timeout via defer
-		err := db.Migrate(dsn, direction, 0)
-		return msgs.MigrateDoneMsg{Direction: direction, Err: err}
+		return msgs.MigrateDoneMsg{Direction: "up", Err: db.MigrateUp(dsn)}
+	}
+}
+
+func migrateDownCmd(dsn string) tea.Cmd {
+	return func() tea.Msg {
+		return msgs.MigrateDoneMsg{Direction: "down", Err: db.MigrateDown(dsn, 0)}
 	}
 }

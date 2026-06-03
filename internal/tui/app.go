@@ -183,12 +183,6 @@ func (a App) renderTabBar() string {
 }
 
 func (a App) renderActiveView() string {
-	availH := a.height - tabBarHeight - statusBarHeight
-	if a.banner.Visible {
-		availH--
-	}
-	_ = availH // used for SetSize; individual views manage their own scrolling
-
 	switch a.activeView {
 	case views.ViewDashboard:
 		return a.dashboard.View()

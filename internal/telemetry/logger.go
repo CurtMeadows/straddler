@@ -56,7 +56,7 @@ func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
 // FromContext retrieves the logger stored by WithLogger.
 // If no logger is found it returns slog.Default() so callers never get nil.
 func FromContext(ctx context.Context) *slog.Logger {
-	if l, ok := ctx.Value(contextKey{}).(*slog.Logger); ok && l != nil {
+	if l, ok := ctx.Value(contextKey{}).(*slog.Logger); ok {
 		return l
 	}
 	return slog.Default()

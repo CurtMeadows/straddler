@@ -19,8 +19,13 @@ import (
 const jobsPageSize = 20
 
 // statusFilters lists the filter options cycled by Tab in the Jobs view.
-var statusFilters = []string{"", "pending", "in_progress", "completed", "failed"}
-var statusFilterLabels = []string{"All", "Pending", "In Progress", "Completed", "Failed"}
+var statusFilters = []struct{ Value, Label string }{
+	{"", "All"},
+	{"pending", "Pending"},
+	{"in_progress", "In Progress"},
+	{"completed", "Completed"},
+	{"failed", "Failed"},
+}
 
 // JobsModel shows a paginated, filterable table of sync jobs.
 type JobsModel struct {
@@ -207,11 +212,11 @@ func (m JobsModel) View() string {
 
 	// Filter tabs.
 	var filterParts []string
-	for i, label := range statusFilterLabels {
+	for i, f := range statusFilters {
 		if i == m.filterIdx {
-			filterParts = append(filterParts, styles.TabActive.Render(label))
+			filterParts = append(filterParts, styles.TabActive.Render(f.Label))
 		} else {
-			filterParts = append(filterParts, styles.TabInactive.Render(label))
+			filterParts = append(filterParts, styles.TabInactive.Render(f.Label))
 		}
 	}
 	sb.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, filterParts...))
@@ -284,7 +289,7 @@ func (m JobsModel) renderDetail() string {
 }
 
 func (m JobsModel) statusFilter() string {
-	return statusFilters[m.filterIdx]
+	return statusFilters[m.filterIdx].Value
 }
 
 func (m JobsModel) searchQuery() string {
